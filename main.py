@@ -1,8 +1,9 @@
 import numpy as np
 import datetime
 from plot import *
+import time
 
-chemin_src='C:/Users/Gwen/Desktop/Data/Bulgarie/ep-240126.log'
+chemin_src='C:/Users/Gwen/Desktop/Data/Bulgarie/ep-240130.log'
 chemin_dest='C:/Users/Gwen/Desktop/Data/Bulgarie/donneesNettoyees2.txt'
 #
 #@brief fonction qui récupère les logs et le nettoie
@@ -41,7 +42,7 @@ def recupDonnees(chemin_src):
     if date < lastdate:
         tab_donnees.append((lastdate,'END',0))
     file.close()
-    return tab_donnees,firstdate
+    return tab_donnees,firstdate,lastdate
 #
 #@brief fonction qui sauvegarde les données nettoyées dans un fichier au format txt
 #@param le tableau de données nettoyées, le chemin de destination du ficher txt
@@ -59,48 +60,106 @@ def saveTxt(tab_donnees,chemin_dest):
 #@param le tableau de données nettoyées, la date de pproduction des données
 #@return le tableau des durées de fonctionnement
 #  
-def fonctionnement(tab_donnees,firstdate):
+def fonctionnement(tab_donnees,firstdate,lastdate):
     tab_debut=[]
     tab_fin=[]
     deb=False
-    fin=True
+    flagfin=True
     for i in range(len(tab_donnees)):
-        if (tab_donnees[i][1])=="SPEED +" and deb==False:
+        if tab_donnees[i][1]=="SPEED +" and deb==False:
             debut=(tab_donnees[i][0])
-            tab_debut.append(debut)
             deb=True
-            fin=False
-        if tab_donnees[i][1]=='STOP' and fin==False:
+            flagfin=False
+        if tab_donnees[i][1]=='STOP' and flagfin==False:
             fin=(tab_donnees[i][0])
-            tab_fin.append(fin)
             deb=False
+            flagfin=True
+            if debut.strftime('%H')==fin.strftime('%H'):
+                tab_debut.append(debut)
+                tab_fin.append(fin)
+            else:
+                findec=debut
+                findec=findec.replace(minute=59,second=59)
+                debutdec=fin
+                debutdec=debutdec.replace(minute=0,second=0)
+                tab_debut.append(debut)
+                tab_fin.append(findec)
+                tab_debut.append(debutdec)
+                tab_fin.append(fin)
+                
+
+        #if deb==True and fin==False:
+         #   debut=(tab_donnees[i][0])
+          #  tab_debut.append(debut)
+           # fin=(tab_donnees[i][0])
+            #tab_fin.append(fin)
+  
+        
     tab_duree=[]
     for i in range(len(tab_debut)):
         if tab_debut[i] is None:
-                continue
+           continue
         elif i+1<len(tab_debut):
             if tab_debut[i].strftime('%H')!=tab_debut[i+1].strftime('%H'):
+                #print(tab_debut[i].strftime('%H'),tab_debut[i+1].strftime('%H'))
+                #rint(tab_fin[i]-tab_debut[i])
                 dureetmp=tab_fin[i]-tab_debut[i]
                 tab_duree.append((tab_debut[i].strftime('%H'),dureetmp))
-            elif tab_debut[i].strftime('%H')==tab_debut[i+1].strftime('%H'):
-                dureetmp=tab_fin[i]-tab_debut[i]
-                dureetmp2=tab_fin[i+1]-tab_debut[i+1]
-                duree=dureetmp+dureetmp2
-                tab_debut[i+1]=None
-                tab_duree.append((tab_debut[i].strftime('%H'),duree))
-    return(tab_duree)
+            else:
+                j=i
+                dureetmp=datetime.timedelta(seconds=0)
+                while tab_debut[j].strftime('%H')==tab_debut[j+1].strftime('%H'):
+                    dureetmp1=tab_fin[j]-tab_debut[j]
+                    dureetmp=dureetmp+dureetmp1
+                    dureetmp2=tab_fin[j+1]-tab_debut[j+1]
+                    tmp=tab_debut[j]
+                    tab_debut[j]=None
+                    if j+1==len(tab_debut)-1:
+                        break
+                    else:
+                        j+=1
+                
+                dureetmp=dureetmp+dureetmp2
+                tab_duree.append((tmp.strftime('%H'),dureetmp))
+                tab_debut[j]=None
+    #print(tab_duree)
+    tab_duree_tot=[]
+    firstdate2=firstdate
+    minutes = datetime.timedelta(minutes=60)
+    t=0
+    while firstdate2.strftime('%H')<=lastdate.strftime('%H'):
+        if t<len(tab_duree):
+            if firstdate2.strftime('%H')!=tab_duree[t][0]:
+                #print(firstdate2.strftime('%H'),tab_duree[i][0])
+                sec=datetime.timedelta(seconds=0)
+                tab_duree_tot.append((firstdate2.strftime('%H'),sec))
+            else:
+                tab_duree_tot.append((tab_duree[t][0],tab_duree[t][1]))
+                t=t+1
+            firstdate2=firstdate2+minutes
+        else:
+            tab_duree_tot.append((firstdate2.strftime('%H'),sec))
+            t=t+1
+            firstdate2=firstdate2+minutes
+
+        
+    #print(tab_duree_tot)
+    return(tab_duree_tot)
 #
 #@brief fonction qui produit un tableau pour taux de fonctionnement horaire 
 #@param le tableau de durée de fonctionnement par heure
 #@return le tableau avec % de fcnmt/heure
 #  
-def graphFcnmt(tab_duree):
-	tabGrapheFnmt=[]
-	for i in range(len(tab_duree)):
-		td=datetime.timedelta(days=0, minutes=60)
-		pourcentage=round((tab_duree[i][1]/td*100),1)
-		tabGrapheFnmt.append((tab_duree[i][0],pourcentage))
-	return tabGrapheFnmt
+def graphFcnmt(tab_duree_tot):
+    tabGrapheFnmt=[]
+    for i in range(len(tab_duree_tot)):
+        td=datetime.timedelta(days=0, minutes=60)
+        if tab_duree_tot[i][1]!=0:
+            pourcentage=round((tab_duree_tot[i][1]/td*100),1)
+        else:
+            pourcentage=0
+        tabGrapheFnmt.append((tab_duree_tot[i][0],pourcentage))
+    return tabGrapheFnmt
 
 def graphSac(tab_donnees,firstdate):
     dateToCompare=firstdate
@@ -117,16 +176,16 @@ def graphSac(tab_donnees,firstdate):
     return tabGraphSac
 
 def main(chemin):
-    tab_donnees,firstdate=recupDonnees(chemin)
+    tab_donnees,firstdate,lastdate=recupDonnees(chemin)
     saveTxt(tab_donnees,chemin_dest)
-    tab_duree=fonctionnement(tab_donnees,firstdate)
-    #print(tab_donnees)
-    tabGrapheFnmt=graphFcnmt(tab_duree)
+    tab_duree_tot=fonctionnement(tab_donnees,firstdate,lastdate)
+    print(tab_duree_tot)
+    tabGrapheFnmt=graphFcnmt(tab_duree_tot)
     #print(tabGrapheFnmt)
-    #courbeFcnmt(tabGrapheFnmt)
+    courbeFcnmt(tabGrapheFnmt,firstdate)
     tabGraphSac=graphSac(tab_donnees,firstdate)
-    print(tabGraphSac)
-    #courbeSac(tabGraphSac)
+    #print(tabGraphSac)
+    courbeSac(tabGraphSac)
 
 main(chemin_src)
 
