@@ -1,8 +1,8 @@
 import numpy as np
 import datetime
-from Plot import *
+from plot import *
 
-chemin_src='C:/Users/Gwen/Desktop/Data/Bulgarie/ep.log'
+chemin_src='C:/Users/Gwen/Desktop/Data/Bulgarie/ep-240126.log'
 chemin_dest='C:/Users/Gwen/Desktop/Data/Bulgarie/donneesNettoyees2.txt'
 #
 #@brief fonction qui récupère les logs et le nettoie
@@ -20,19 +20,26 @@ def recupDonnees(chemin_src):
     toSplit1=line.split("]")
     toSplit2=toSplit1[0].split(" ")
     toSplit3=toSplit2[0].split("-")
-    toSplit4=toSplit2[1].split(":")
-    firstdate=datetime.datetime(int(toSplit3[0][1:]),int(toSplit3[1]),int(toSplit3[2]),int(toSplit4[0])+2,int(toSplit4[1]),int(toSplit4[2]))
+    firstdate=datetime.datetime(int(toSplit3[0][1:]),int(toSplit3[1]),int(toSplit3[2]),8,0,1)
+    tab_donnees.append((firstdate,'FIRST',0))
     while line:
         toSplit1=line.split("]")
         toSplit2=toSplit1[0].split(" ")
         toSplit3=toSplit2[0].split("-")
         toSplit4=toSplit2[1].split(":")
-        date=datetime.datetime(int(toSplit3[0][1:]),int(toSplit3[1]),int(toSplit3[2]),int(toSplit4[0])+2,int(toSplit4[1]),int(toSplit4[2]))
+        if int(toSplit4[2])!="":
+            sec=int(toSplit4[2])
+        else:
+             sec=0
+        date=datetime.datetime(int(toSplit3[0][1:]),int(toSplit3[1]),int(toSplit3[2]),int(toSplit4[0])+2,int(toSplit4[1]),sec)
         value=toSplit1[1].strip()
         if value=="BATCH" :
             compteur+=50
         line = file.readline()
         tab_donnees.append((date,value,compteur))
+    lastdate=datetime.datetime(int(toSplit3[0][1:]),int(toSplit3[1]),int(toSplit3[2]),17,0,1)
+    if date < lastdate:
+        tab_donnees.append((lastdate,'END',0))
     file.close()
     return tab_donnees,firstdate
 #
@@ -53,12 +60,10 @@ def saveTxt(tab_donnees,chemin_dest):
 #@return le tableau des durées de fonctionnement
 #  
 def fonctionnement(tab_donnees,firstdate):
-    heure1=datetime.datetime(firstdate.year, firstdate.month, firstdate.day,8,0,0)
-    minutes = datetime.timedelta(minutes=60)
     tab_debut=[]
     tab_fin=[]
     deb=False
-    fin=False
+    fin=True
     for i in range(len(tab_donnees)):
         if (tab_donnees[i][1])=="SPEED +" and deb==False:
             debut=(tab_donnees[i][0])
@@ -97,25 +102,31 @@ def graphFcnmt(tab_duree):
 		tabGrapheFnmt.append((tab_duree[i][0],pourcentage))
 	return tabGrapheFnmt
 
-def graphSac(tab_donnees):
-    dateToCompare=datetime.datetime(2024,2,4,8,0,0)
+def graphSac(tab_donnees,firstdate):
+    dateToCompare=firstdate
     minutes = datetime.timedelta(minutes=15)
     tabGraphSac=[]
     for elt in tab_donnees:
             heureTronquee = elt[0].strftime('%H:%M')
+            #print(heureTronquee,dateToCompare)
             if heureTronquee==dateToCompare.strftime('%H:%M'):
                 tabGraphSac.append((elt[0],heureTronquee,elt[2]))
                 dateToCompare=dateToCompare+minutes
+            elif heureTronquee>dateToCompare.strftime('%H:%M'):
+                 dateToCompare=dateToCompare+minutes
     return tabGraphSac
 
 def main(chemin):
     tab_donnees,firstdate=recupDonnees(chemin)
     saveTxt(tab_donnees,chemin_dest)
     tab_duree=fonctionnement(tab_donnees,firstdate)
+    #print(tab_donnees)
     tabGrapheFnmt=graphFcnmt(tab_duree)
-    courbeFcnmt(tabGrapheFnmt)
-    tabGraphSac=graphSac(tab_donnees)
-    courbeSac(tabGraphSac)
+    #print(tabGrapheFnmt)
+    #courbeFcnmt(tabGrapheFnmt)
+    tabGraphSac=graphSac(tab_donnees,firstdate)
+    print(tabGraphSac)
+    #courbeSac(tabGraphSac)
 
 main(chemin_src)
 
