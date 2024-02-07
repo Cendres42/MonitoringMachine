@@ -1,9 +1,8 @@
 import numpy as np
 import datetime
 from plot import *
-import time
 
-chemin_src='C:/Users/Gwen/Desktop/Data/Bulgarie/ep-240130.log'
+chemin_src='C:/Users/Gwen/Desktop/Data/Bulgarie/europack-33.log'
 chemin_dest='C:/Users/Gwen/Desktop/Data/Bulgarie/donneesNettoyees2.txt'
 #
 #@brief fonction qui récupère les logs et le nettoie
@@ -24,25 +23,41 @@ def recupDonnees(chemin_src):
     firstdate=datetime.datetime(int(toSplit3[0][1:]),int(toSplit3[1]),int(toSplit3[2]),8,0,1)
     tab_donnees.append((firstdate,'FIRST',0))
     while line:
-        toSplit1=line.split("]")
-        toSplit2=toSplit1[0].split(" ")
-        toSplit3=toSplit2[0].split("-")
-        toSplit4=toSplit2[1].split(":")
-        if int(toSplit4[2])!="":
-            sec=int(toSplit4[2])
+        if line[0]=="[":
+            toSplit1=line.split("]")
+            toSplit2=toSplit1[0].split(" ")
+            toSplit3=toSplit2[0].split("-")
+            toSplit4=toSplit2[1].split(":")
+            #print(toSplit4[0])
+            if int(toSplit4[2])!="":
+                sec=int(toSplit4[2])
+            else:
+                sec=0
+            date=datetime.datetime(int(toSplit3[0][1:]),int(toSplit3[1]),int(toSplit3[2]),int(toSplit4[0])+1,int(toSplit4[1]),sec)
+            value=toSplit1[1].strip()
+            if value=="BATCH" :
+                compteur+=50
+            tab_donnees.append((date,value,compteur))
+            #print(date,value,compteur)
         else:
-             sec=0
-        date=datetime.datetime(int(toSplit3[0][1:]),int(toSplit3[1]),int(toSplit3[2]),int(toSplit4[0])+2,int(toSplit4[1]),sec)
-        value=toSplit1[1].strip()
-        if value=="BATCH" :
-            compteur+=50
+            if line=='BATCH':
+                compteur+=50
+                tab_donnees.append((date,'BATCH',compteur))
+            elif line=='SPEED +':
+                tab_donnees.append((date,'SPEED +',compteur))
+            elif line=='STOP':
+                tab_donnees.append((date,'STOP',compteur))
+            elif line=='START':
+                tab_donnees.append((date,'START',compteur))
+            else:
+                line = file.readline()
         line = file.readline()
-        tab_donnees.append((date,value,compteur))
     lastdate=datetime.datetime(int(toSplit3[0][1:]),int(toSplit3[1]),int(toSplit3[2]),17,0,1)
     if date < lastdate:
         tab_donnees.append((lastdate,'END',0))
     file.close()
     return tab_donnees,firstdate,lastdate
+        
 #
 #@brief fonction qui sauvegarde les données nettoyées dans un fichier au format txt
 #@param le tableau de données nettoyées, le chemin de destination du ficher txt
@@ -86,15 +101,11 @@ def fonctionnement(tab_donnees,firstdate,lastdate):
                 tab_fin.append(findec)
                 tab_debut.append(debutdec)
                 tab_fin.append(fin)
-                
-
         #if deb==True and fin==False:
          #   debut=(tab_donnees[i][0])
           #  tab_debut.append(debut)
            # fin=(tab_donnees[i][0])
             #tab_fin.append(fin)
-  
-        
     tab_duree=[]
     for i in range(len(tab_debut)):
         if tab_debut[i] is None:
@@ -127,11 +138,12 @@ def fonctionnement(tab_donnees,firstdate,lastdate):
     firstdate2=firstdate
     minutes = datetime.timedelta(minutes=60)
     t=0
-    while firstdate2.strftime('%H')<=lastdate.strftime('%H'):
+    while firstdate2.strftime('%H')<lastdate.strftime('%H'):
+        sec=datetime.timedelta(seconds=0)
         if t<len(tab_duree):
             if firstdate2.strftime('%H')!=tab_duree[t][0]:
                 #print(firstdate2.strftime('%H'),tab_duree[i][0])
-                sec=datetime.timedelta(seconds=0)
+                
                 tab_duree_tot.append((firstdate2.strftime('%H'),sec))
             else:
                 tab_duree_tot.append((tab_duree[t][0],tab_duree[t][1]))
@@ -175,11 +187,12 @@ def graphSac(tab_donnees,firstdate):
                  dateToCompare=dateToCompare+minutes
     return tabGraphSac
 
-def main(chemin):
-    tab_donnees,firstdate,lastdate=recupDonnees(chemin)
+def main(chemin_src):
+    tab_donnees,firstdate,lastdate=recupDonnees(chemin_src)
+    #print(tab_donnees,firstdate,lastdate)
     saveTxt(tab_donnees,chemin_dest)
     tab_duree_tot=fonctionnement(tab_donnees,firstdate,lastdate)
-    print(tab_duree_tot)
+    #print(tab_duree_tot)
     tabGrapheFnmt=graphFcnmt(tab_duree_tot)
     #print(tabGrapheFnmt)
     courbeFcnmt(tabGrapheFnmt,firstdate)
